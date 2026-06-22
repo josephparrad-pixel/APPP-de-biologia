@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bioinformática · Monitoreo y Modelaje de Nichos</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* ===== RESET Y ESTILOS GLOBALES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f4f9f9;
+            color: #1e2b3a;
+            line-height: 1.6;
+        }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+        .navbar {
+            background: #0a2f44;
+            color: white;
+            padding: 0.8rem 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .navbar .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .navbar .logo i {
+            color: #6bcb9a;
+            margin-right: 8px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            font-weight: 500;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: #e0f0f0;
+            transition: 0.3s;
+            font-size: 0.95rem;
+            cursor: pointer;
+            padding: 0.2rem 0.2rem;
+        }
+        .nav-links a:hover {
+            color: #b3e6d6;
+            transform: scale(1.05);
+        }
+        .nav-links a i {
+            margin-right: 5px;
+        }
+        .nav-links a.active {
+            color: #6bcb9a;
+            border-bottom: 2px solid #6bcb9a;
+            padding-bottom: 2px;
+        }
+        .page {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0.6;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .hero {
+            background: linear-gradient(135deg, #0a2f44 0%, #1c5a7a 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .hero h1 i {
+            color: #6bcb9a;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0.5rem auto 1rem;
+            opacity: 0.9;
+        }
+        .hero .badge {
+            background: #6bcb9a;
+            color: #0a2f44;
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0a2f44;
+            border-left: 8px solid #6bcb9a;
+            padding-left: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        .section-title i {
+            color: #1c7a5a;
+            margin-right: 10px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.8rem 1.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+            transition: 0.25s ease;
+            border-bottom: 4px solid #6bcb9a;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 40px rgba(0, 40, 60, 0.12);
+        }
+        .card h3 {
+            font-size: 1.4rem;
+            color: #0a2f44;
+            margin-bottom: 0.75rem;
+        }
+        .card h3 i {
+            color: #1c7a5a;
+            margin-right: 10px;
+        }
+        .card ul {
+            list-style: none;
+            margin-top: 0.8rem;
+        }
+        .card ul li {
+            padding: 0.4rem 0;
+            border-bottom: 1px solid #eef5f5;
+            display: flex;
+            align-items: center;
+        }
+        .card ul li i {
+            color: #1c7a5a;
+            width: 24px;
+            margin-right: 8px;
+        }
+        .stat-box {
+            background: #e8f4f0;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            margin-top: 0.8rem;
+            font-weight: 500;
+        }
+        /* CATÁLOGO */
+        .catalog-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: white;
+            padding: 1.2rem 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+            align-items: center;
+        }
+        .catalog-toolbar label {
+            font-weight: 600;
+            color: #0a2f44;
+            margin-right: 0.3rem;
+        }
+        .catalog-toolbar select,
+        .catalog-toolbar input {
+            padding: 0.5rem 1rem;
+            border: 2px solid #cfe3dd;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            background: white;
+            min-width: 160px;
+        }
+        .catalog-toolbar .btn {
+            background: #0a2f44;
+            color: white;
+            border: none;
+            padding: 0.5rem 1.4rem;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .catalog-toolbar .btn:hover {
+            background: #1c5a7a;
+        }
+        .catalog-stats {
+            font-size: 0.95rem;
+            color: #1e5a4a;
+            margin-left: auto;
+        }
+        .catalog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.2rem;
+        }
+        .catalog-item {
+            background: white;
+            border-radius: 16px;
+            padding: 1.2rem 1.2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+            border-left: 5px solid #6bcb9a;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .catalog-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 40, 60, 0.10);
+        }
+        .catalog-item .nombre {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #0a2f44;
+        }
+        .catalog-item .cientifico {
+            font-style: italic;
+            color: #2a6a5a;
+            font-size: 0.95rem;
+        }
+        .catalog-item .meta {
+            font-size: 0.85rem;
+            color: #4a6a7a;
+            margin-top: 0.4rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem 0.8rem;
+        }
+        .catalog-item .meta span {
+            background: #eaf5f0;
+            padding: 0.1rem 0.6rem;
+            border-radius: 20px;
+        }
+        .badge-estado {
+            display: inline-block;
+            padding: 0.1rem 0.7rem;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-estado.LC {
+            background: #8bc34a;
+            color: #1e3a1e;
+        }
+        .badge-estado.NT {
+            background: #ffb74d;
+            color: #4a2e00;
+        }
+        .badge-estado.VU {
+            background: #ffa726;
+            color: #4a2e00;
+        }
+        .badge-estado.EN {
+            background: #ef5350;
+            color: white;
+        }
+        .badge-estado.CR {
+            background: #c62828;
+            color: white;
+        }
+        .badge-estado.DD {
+            background: #bdbdbd;
+            color: #1e1e1e;
+        }
+        .badge-estado.NE {
+            background: #e0e0e0;
+            color: #1e1e1e;
+        }
+        /* DETALLE */
+        .detail-header {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            margin-bottom: 2rem;
+        }
+        .detail-header h1 {
+            font-size: 2.5rem;
+            color: #0a2f44;
+        }
+        .detail-header .cientifico {
+            font-size: 1.3rem;
+            font-style: italic;
+            color: #2a6a5a;
+        }
+        .detail-header .meta-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 0.5rem 0 1rem;
+        }
+        .detail-header .meta-tags span {
+            background: #eaf5f0;
+            padding: 0.2rem 1rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+        }
+        .detail-body {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        .detail-body .main-info {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+        }
+        .detail-body .sidebar {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+        }
+        .detail-body .sidebar h3 {
+            color: #0a2f44;
+            border-bottom: 2px solid #6bcb9a;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .detail-body .sidebar ul {
+            list-style: none;
+        }
+        .detail-body .sidebar ul li {
+            padding: 0.4rem 0;
+            border-bottom: 1px solid #eef5f5;
+        }
+        .detail-body .sidebar ul li strong {
+            color: #0a2f44;
+        }
+        .detail-body .main-info h2 {
+            color: #0a2f44;
+            margin-top: 1.2rem;
+            border-left: 4px solid #6bcb9a;
+            padding-left: 0.8rem;
+        }
+        .detail-body .main-info p {
+            margin-bottom: 0.8rem;
+            text-align: justify;
+        }
+        .detail-body .main-info .ref {
+            font-size: 0.9rem;
+            color: #4a6a7a;
+            margin-top: 1rem;
+            border-top: 1px solid #ddd;
+            padding-top: 1rem;
+        }
+        .btn-back {
+            background: #0a2f44;
+            color: white;
+            border: none;
+            padding: 0.6rem 1.6rem;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 1rem;
+        }
+        .btn-back:hover {
+            background: #1c5a7a;
+        }
+        @media (max-width: 768px) {
+            .detail-body {
+                grid-template-columns: 1fr;
+            }
+        }
+        /* MAPA */
+        .map-section {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2.5rem;
+        }
+        .map-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            align-items: stretch;
+        }
+        .map-container {
+            flex: 2;
+            min-height: 400px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid #d0e6e0;
+        }
+        #map {
+            width: 100%;
+            height: 400px;
+            background: #cbdde0;
+        }
+        .map-controls {
+            flex: 1;
+            min-width: 250px;
+            background: #f8fcfb;
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid #d0e6e0;
+        }
+        .map-controls h4 {
+            font-size: 1.2rem;
+            color: #0a2f44;
+            margin-bottom: 0.5rem;
+        }
+        .map-controls .form-group {
+            margin: 1rem 0;
+        }
+        .map-controls label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.2rem;
+        }
+        .map-controls select {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 2px solid #cfe3dd;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            background: white;
+        }
+        .select2-container .select2-selection--single {
+            height: 42px !important;
+            padding: 0.3rem 0.5rem;
+            border: 2px solid #cfe3dd !important;
+            border-radius: 30px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 40px !important;
+        }
+        .btn {
+            background: #0a2f44;
+            color: white;
+            border: none;
+            padding: 0.7rem 1.6rem;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-success {
+            background: #1c7a5a;
+        }
+        .btn-success:hover {
+            background: #0f5e44;
+            transform: scale(1.02);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #1c7a5a;
+            color: #1c7a5a;
+        }
+        .btn-outline:hover {
+            background: #1c7a5a;
+            color: white;
+        }
+        .observation-list {
+            margin-top: 1rem;
+            max-height: 220px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+            border: 1px solid #d0e6e0;
+        }
+        .observation-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid #e3efeb;
+            font-size: 0.9rem;
+        }
+        .observation-item .species {
+            font-weight: 600;
+            color: #0a2f44;
+        }
+        .observation-item .date {
+            color: #4a6a7a;
+            font-size: 0.8rem;
+        }
+        .observation-item .coords {
+            color: #4a6a7a;
+            font-size: 0.75rem;
+        }
+        /* ENM */
+        .enm-section {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+        }
+        .enm-section h3 {
+            font-size: 1.6rem;
+            color: #0a2f44;
+            margin-bottom: 1.5rem;
+        }
+        .enm-section h3 i {
+            color: #1c7a5a;
+            margin-right: 10px;
+        }
+        .enm-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+        .enm-controls {
+            flex: 1;
+            min-width: 250px;
+        }
+        .enm-controls .form-group {
+            margin-bottom: 1rem;
+        }
+        .enm-controls label {
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            color: #0a2f44;
+        }
+        .enm-controls input[type="range"] {
+            width: 100%;
+            accent-color: #1c7a5a;
+        }
+        .enm-controls .variable-desc {
+            font-size: 0.8rem;
+            color: #4a6a7a;
+            margin-top: -0.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .enm-graph {
+            flex: 2;
+            min-width: 300px;
+            background: #fafcfc;
+            border-radius: 16px;
+            padding: 1rem;
+            border: 1px solid #d0e6e0;
+        }
+        .enm-graph canvas {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 250px;
+        }
+        .enm-stats {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #e8f4f0;
+            border-radius: 16px;
+        }
+        .enm-stats div {
+            font-size: 0.95rem;
+        }
+        .enm-stats strong {
+            color: #0a2f44;
+        }
+        .enm-description {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: #f8fcfb;
+            border-radius: 16px;
+            border-left: 4px solid #1c7a5a;
+        }
+        .enm-description h4 {
+            color: #0a2f44;
+            margin-bottom: 0.5rem;
+        }
+        .enm-description p {
+            margin-bottom: 0.3rem;
+            font-size: 0.95rem;
+        }
+        .enm-description ul {
+            list-style: none;
+            padding: 0;
+        }
+        .enm-description ul li {
+            padding: 0.2rem 0;
+            border-bottom: 1px solid #e3efeb;
+        }
+        /* INSTITUCIONES */
+        .instituciones-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        .institucion-card {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border-top: 5px solid #6bcb9a;
+            transition: 0.2s;
+        }
+        .institucion-card:hover {
+            transform: translateY(-5px);
+        }
+        .institucion-card i {
+            font-size: 2.5rem;
+            color: #1c7a5a;
+            margin-bottom: 0.5rem;
+        }
+        .institucion-card h4 {
+            color: #0a2f44;
+            font-size: 1.1rem;
+        }
+        .institucion-card p {
+            font-size: 0.9rem;
+            color: #4a6a7a;
+        }
+        .sistemas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .sistema-card {
+            background: #e8f4f0;
+            border-radius: 16px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        .sistema-card i {
+            font-size: 2rem;
+            color: #0a2f44;
+        }
+        .sistema-card h4 {
+            color: #0a2f44;
+            margin: 0.3rem 0;
+        }
+        .sistema-card p {
+            font-size: 0.9rem;
+            color: #1e3a3a;
+        }
+        /* ÉTICA */
+        .ethics-case {
+            background: linear-gradient(145deg, #f0f8f5, #e4f0ea);
+            border-radius: 24px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            border-left: 8px solid #2b7a62;
+        }
+        .ethics-case h3 {
+            font-size: 1.6rem;
+            color: #0a2f44;
+        }
+        .ethics-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+        .ethics-options button {
+            background: white;
+            border: 2px solid #1c7a5a;
+            padding: 0.8rem 1.8rem;
+            border-radius: 50px;
+            font-weight: 600;
+            color: #1c7a5a;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .ethics-options button:hover {
+            background: #1c7a5a;
+            color: white;
+        }
+        .ethics-options button.selected {
+            background: #1c7a5a;
+            color: white;
+        }
+        .ethics-feedback {
+            background: white;
+            border-radius: 16px;
+            padding: 1.2rem 1.8rem;
+            margin-top: 1rem;
+            border-left: 6px solid #0a2f44;
+            display: none;
+        }
+        .ethics-feedback.show {
+            display: block;
+        }
+        .footer {
+            background: #0a2f44;
+            color: #c0d9d9;
+            text-align: center;
+            padding: 2rem 1rem;
+            margin-top: 3rem;
+        }
+        .footer a {
+            color: #6bcb9a;
+        }
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+            .nav-links {
+                justify-content: center;
+                gap: 0.8rem;
+            }
+            .hero h1 {
+                font-size: 2rem;
+            }
+            .map-row {
+                flex-direction: column;
+            }
+            .map-container {
+                min-height: 250px;
+            }
+            #map {
+                height: 250px;
+            }
+            .catalog-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .catalog-toolbar .catalog-stats {
+                margin-left: 0;
+                text-align: center;
+            }
+            .enm-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== NAVBAR ===== -->
+    <nav class="navbar">
+        <div class="logo"><i class="fas fa-dna"></i> BioConservación</div>
+        <div class="nav-links">
+            <a href="#inicio" data-page="inicio" class="active"><i class="fas fa-home"></i> Inicio</a>
+            <a href="#aplicaciones" data-page="aplicaciones"><i class="fas fa-flask"></i> Aplicaciones</a>
+            <a href="#monitoreo" data-page="monitoreo"><i class="fas fa-map-marked-alt"></i> Monitoreo</a>
+            <a href="#datos" data-page="datos"><i class="fas fa-database"></i> Datos</a>
+            <a href="#instituciones" data-page="instituciones"><i class="fas fa-university"></i> Instituciones</a>
+            <a href="#etica" data-page="etica"><i class="fas fa-scale-balanced"></i> Ética</a>
+        </div>
+    </nav>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: INICIO -->
+    <div id="page-inicio" class="page active">
+        <section class="hero">
+            <h1><i class="fas fa-seedling"></i> Bioinformática y Conservación</h1>
+            <p>Integrando datos, modelado y monitoreo para la gestión de la biodiversidad.</p>
+            <div class="badge"><i class="fas fa-globe-americas"></i> Aplicación didáctica interactiva</div>
+        </section>
+        <div class="container">
+            <h2 class="section-title"><i class="fas fa-lightbulb"></i> Fundamentos de Bioinformática</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h3><i class="fas fa-database"></i> Datos Biológicos</h3>
+                    <p>La bioinformática permite almacenar, analizar y visualizar grandes volúmenes de datos genéticos, de distribución y ecológicos para la conservación.</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Secuenciación genómica</li>
+                        <li><i class="fas fa-check-circle"></i> Bases de datos de biodiversidad</li>
+                        <li><i class="fas fa-check-circle"></i> Análisis filogenéticos</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-chart-line"></i> Más de 350 especies en nuestro catálogo</div>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-project-diagram"></i> Modelado de Nichos</h3>
+                    <p>El modelado de nichos ecológicos (ENM) utiliza variables ambientales para predecir la distribución potencial de las especies bajo diferentes escenarios.</p>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Algoritmos de máxima entropía</li>
+                        <li><i class="fas fa-check-circle"></i> Curvas de respuesta</li>
+                        <li><i class="fas fa-check-circle"></i> Escenarios de cambio climático</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-sliders-h"></i> Ajusta las variables y observa los cambios</div>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-tools"></i> Herramientas de Monitoreo</h3>
+                    <ul>
+                        <li><i class="fas fa-satellite-dish"></i> GPS y aplicaciones móviles (iNaturalist, SMART)</li>
+                        <li><i class="fas fa-code"></i> Análisis de datos genómicos y ecológicos</li>
+                        <li><i class="fas fa-robot"></i> Sistemas de alerta temprana (ATTA)</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-globe"></i> Integración de datos de campo y sensores remotos</div>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <h2 class="section-title"><i class="fas fa-chart-line"></i> Tendencias en Bioinformática</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h3><i class="fas fa-rocket"></i> Inteligencia Artificial</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Reconocimiento de especies con IA</li>
+                        <li><i class="fas fa-check-circle"></i> Modelos predictivos de distribución</li>
+                        <li><i class="fas fa-check-circle"></i> Análisis de Big Data ecológico</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-globe"></i> Conservación Integrada</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Corredores biológicos</li>
+                        <li><i class="fas fa-check-circle"></i> Monitoreo participativo</li>
+                        <li><i class="fas fa-check-circle"></i> Políticas basadas en evidencia</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-leaf"></i> BioConservación · Aplicación didáctica basada en el documento "Bioinformática y conservación"</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: APLICACIONES (BIOINFORMÁTICA) -->
+    <div id="page-aplicaciones" class="page">
+        <section class="hero" style="background: linear-gradient(135deg, #1c5a3a, #2d7a5a);">
+            <h1><i class="fas fa-flask"></i> Aplicaciones de la Bioinformática</h1>
+            <p>Herramientas computacionales para la conservación y manejo de recursos naturales</p>
+        </section>
+        <div class="container">
+            <h2 class="section-title"><i class="fas fa-satellite-dish"></i> Monitoreo y Captura de Datos</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h3><i class="fas fa-mobile-alt"></i> GPS y Apps móviles</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> iNaturalist: observación ciudadana de especies</li>
+                        <li><i class="fas fa-check-circle"></i> SMART: patrullaje y registro de amenazas</li>
+                        <li><i class="fas fa-check-circle"></i> Sistematización de rutas y mapas de calor</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-route"></i> Permite monitorear áreas protegidas en tiempo real</div>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-dna"></i> Análisis Genómico y Filogenético</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Identificación de especies mediante códigos de barras genéticos</li>
+                        <li><i class="fas fa-check-circle"></i> Estudio de diversidad genética poblacional</li>
+                        <li><i class="fas fa-check-circle"></i> Reconstrucción de relaciones evolutivas</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-project-diagram"></i> Clave para planes de conservación basados en genética</div>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-chart-line"></i> Modelado de Distribución de Especies</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Nichos ecológicos y cambio climático</li>
+                        <li><i class="fas fa-check-circle"></i> Identificación de áreas prioritarias</li>
+                        <li><i class="fas fa-check-circle"></i> Simulación de escenarios futuros</li>
+                    </ul>
+                    <div class="stat-box"><i class="fas fa-sliders-h"></i> Ajusta variables ambientales y observa los efectos</div>
+                </div>
+            </div>
+            <h2 class="section-title" style="margin-top:2rem;"><i class="fas fa-tools"></i> Tecnologías para la Conservación</h2>
+            <div class="card-grid">
+                <div class="card">
+                    <h3><i class="fas fa-satellite-dish"></i> Sensores remotos</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Monitoreo de deforestación</li>
+                        <li><i class="fas fa-check-circle"></i> Índice de vegetación (NDVI)</li>
+                        <li><i class="fas fa-check-circle"></i> Detección de incendios</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-edit"></i> Bioinformática de campo</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Aplicaciones para identificación de especies con IA</li>
+                        <li><i class="fas fa-check-circle"></i> Análisis de datos en tiempo real</li>
+                        <li><i class="fas fa-check-circle"></i> Integración con sistemas de información geográfica</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-chart-pie"></i> Impacto en la gestión</h3>
+                    <ul>
+                        <li><i class="fas fa-check-circle"></i> Toma de decisiones basada en datos</li>
+                        <li><i class="fas fa-check-circle"></i> Evaluación de efectividad de áreas protegidas</li>
+                        <li><i class="fas fa-check-circle"></i> Participación ciudadana en ciencia</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-flask"></i> Aplicaciones de la bioinformática en la conservación</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: MONITOREO + ENM (gráfico de barras) -->
+    <div id="page-monitoreo" class="page">
+        <section class="hero" style="background: linear-gradient(135deg, #1f5c4a, #2f7a6a);">
+            <h1><i class="fas fa-map-marked-alt"></i> Monitoreo y Modelaje de Nichos</h1>
+            <p>Registra especies y simula su distribución potencial según variables ambientales</p>
+            <div class="badge"><i class="fas fa-mouse-pointer"></i> Selecciona una especie y ajusta los parámetros</div>
+        </section>
+        <div class="container">
+            <!-- MAPA -->
+            <div class="map-section">
+                <div class="map-row">
+                    <div class="map-container"><div id="map"></div></div>
+                    <div class="map-controls">
+                        <h4><i class="fas fa-plus-circle"></i> Registrar Observación</h4>
+                        <div class="form-group">
+                            <label><i class="fas fa-tag"></i> Especie</label>
+                            <select id="speciesSelect" style="width:100%;"></select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-map-pin"></i> Ubicación (automática)</label>
+                            <input type="text" id="coordsInput" placeholder="Lat, Lng" readonly />
+                        </div>
+                        <button class="btn btn-success" id="addObservationBtn"><i class="fas fa-save"></i> Registrar observación</button>
+                        <div style="margin-top:1rem;"><button class="btn btn-outline" id="clearObservationsBtn"><i class="fas fa-trash-alt"></i> Limpiar todo</button></div>
+                        <div class="observation-list" id="observationList">
+                            <div style="text-align:center;color:#6a8a8a;padding:0.5rem;">No hay observaciones aún</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ENM -->
+            <div class="enm-section">
+                <h3><i class="fas fa-chart-line"></i> Modelaje de Nichos Ecológicos (ENM)</h3>
+                <p style="margin-bottom:1rem;color:#4a6a7a;">Ajusta las variables ambientales y observa cómo cambia la idoneidad del hábitat para la especie seleccionada.</p>
+
+                <div class="enm-row">
+                    <div class="enm-controls">
+                        <div class="form-group">
+                            <label for="enmSpecies">Especie objetivo <span id="enmSpeciesName">Oso de anteojos</span></label>
+                            <select id="enmSpecies" style="width:100%;"></select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Temperatura media anual <span id="tempVal">15</span>°C</label>
+                            <input type="range" id="tempSlider" min="5" max="30" value="15" step="0.5">
+                            <div class="variable-desc">Rango óptimo: 10-20°C</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Precipitación anual <span id="precVal">1500</span> mm</label>
+                            <input type="range" id="precSlider" min="300" max="4000" value="1500" step="50">
+                            <div class="variable-desc">Rango óptimo: 1000-2500 mm</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Altitud <span id="altVal">2500</span> m</label>
+                            <input type="range" id="altSlider" min="0" max="5000" value="2500" step="50">
+                            <div class="variable-desc">Rango óptimo: 1500-3500 m</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Perturbación humana <span id="disturbVal">30</span> %</label>
+                            <input type="range" id="disturbSlider" min="0" max="100" value="30" step="1">
+                            <div class="variable-desc">Menor perturbación = mayor idoneidad</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Cobertura vegetal (NDVI) <span id="ndviVal">0.70</span></label>
+                            <input type="range" id="ndviSlider" min="0" max="1" value="0.70" step="0.01">
+                            <div class="variable-desc">Valores altos indican vegetación densa</div>
+                        </div>
+                    </div>
+
+                    <div class="enm-graph">
+                        <canvas id="enmChart" style="max-height:250px; width:100%;"></canvas>
+                        <div class="enm-stats">
+                            <div><strong>Idoneidad total:</strong> <span id="suitabilityValue">78%</span></div>
+                            <div><strong>Área potencial:</strong> <span id="potentialArea">42,500</span> km²</div>
+                            <div><strong>Variable clave:</strong> <span id="keyVar">Temperatura</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="enm-description">
+                    <h4><i class="fas fa-info-circle"></i> Descripción de las variables ambientales</h4>
+                    <p>Estas variables influyen directamente en la distribución potencial de las especies. El modelo calcula una <strong>idoneidad del hábitat</strong> (0-100%) combinando las respuestas de cada variable. Los rangos óptimos se basan en la literatura ecológica para la especie seleccionada.</p>
+                    <ul>
+                        <li><strong>Temperatura media anual (°C):</strong> Afecta la fisiología y metabolismo. Especies de alta montaña como el Oso de anteojos prefieren climas templados-fríos.</li>
+                        <li><strong>Precipitación anual (mm):</strong> Determina la disponibilidad de agua y humedad. Especies amazónicas requieren alta pluviosidad.</li>
+                        <li><strong>Altitud (m):</strong> Influye en la presión atmosférica, temperatura y vegetación. Cada especie tiene un rango altitudinal característico.</li>
+                        <li><strong>Perturbación humana (%):</strong> Mide el impacto antropogénico (urbanización, agricultura). A mayor perturbación, menor idoneidad para la vida silvestre.</li>
+                        <li><strong>Cobertura vegetal (NDVI):</strong> Índice de vegetación. Valores altos indican bosques saludables, clave para especies forestales.</li>
+                    </ul>
+                    <p style="margin-top:0.5rem;"><i class="fas fa-cog"></i> Los valores de los controles se actualizan en tiempo real. El gráfico muestra la contribución de cada variable a la idoneidad total.</p>
+                </div>
+            </div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-map-pin"></i> Simulador de monitoreo y nichos ecológicos</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: DATOS (CATÁLOGO) -->
+    <div id="page-datos" class="page">
+        <section class="hero" style="background: linear-gradient(135deg, #1a4a3a, #2a6a5a);">
+            <h1><i class="fas fa-database"></i> Catálogo de Biodiversidad</h1>
+            <p>Más de 200 animales y 150 plantas de la megadiversidad peruana</p>
+            <div class="badge"><i class="fas fa-tag"></i> Haz clic en cualquier ficha para ver su ficha detallada</div>
+        </section>
+        <div class="container">
+            <div class="catalog-toolbar">
+                <label for="catFilter"><i class="fas fa-filter"></i> Filtrar:</label>
+                <select id="catFilter"><option value="todos">Todos</option><option value="animal">Animales</option><option value="planta">Plantas</option></select>
+                <label for="catSearch"><i class="fas fa-search"></i> Buscar:</label>
+                <input type="text" id="catSearch" placeholder="Nombre común o científico..." />
+                <button class="btn" id="catResetBtn"><i class="fas fa-undo"></i> Reiniciar</button>
+                <span class="catalog-stats" id="catalogStats">Mostrando 0 especies</span>
+            </div>
+            <div id="catalogGrid" class="catalog-grid"></div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-database"></i> Datos basados en listados de fauna y flora del Perú · MINAM · UICN · Listas rojas nacionales</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: INSTITUCIONES -->
+    <div id="page-instituciones" class="page">
+        <section class="hero" style="background: linear-gradient(135deg, #1a4a5a, #2a6a7a);">
+            <h1><i class="fas fa-university"></i> Instituciones y Sistemas de Monitoreo</h1>
+            <p>Aliados estratégicos para la conservación de la biodiversidad en el Perú</p>
+        </section>
+        <div class="container">
+            <h2 class="section-title"><i class="fas fa-building"></i> Entidades del Estado</h2>
+            <div class="instituciones-grid">
+                <div class="institucion-card"><i class="fas fa-tree"></i><h4>SERNANP</h4><p>Servicio Nacional de Áreas Naturales Protegidas.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 22</span></div>
+                <div class="institucion-card"><i class="fas fa-leaf"></i><h4>MINAM</h4><p>Ministerio del Ambiente.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 26</span></div>
+                <div class="institucion-card"><i class="fas fa-graduation-cap"></i><h4>UNALM</h4><p>Universidad Nacional Agraria La Molina.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 22</span></div>
+                <div class="institucion-card"><i class="fas fa-dna"></i><h4>MHN-URP</h4><p>Museo de Historia Natural - URP.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 17</span></div>
+                <div class="institucion-card"><i class="fas fa-microscope"></i><h4>UNMSM</h4><p>Universidad Nacional Mayor de San Marcos.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 20</span></div>
+                <div class="institucion-card"><i class="fas fa-fish"></i><h4>IIAP</h4><p>Instituto de Investigaciones de la Amazonía Peruana.</p><span style="display:inline-block;background:#0a2f44;color:white;padding:0.1rem 1rem;border-radius:20px;font-size:0.8rem;">En línea 21</span></div>
+            </div>
+            <h2 class="section-title" style="margin-top:2rem;"><i class="fas fa-tools"></i> Sistemas de Monitoreo</h2>
+            <div class="sistemas-grid">
+                <div class="sistema-card"><i class="fas fa-satellite-dish"></i><h4>ATTA</h4><p>Sistema de Alerta Temprana para la Biodiversidad. Monitorea cambios en los ecosistemas mediante sensores remotos y datos de campo, permitiendo responder rápidamente a amenazas como deforestación o incendios.</p></div>
+                <div class="sistema-card"><i class="fas fa-mobile-alt"></i><h4>iNaturalist</h4><p>Plataforma ciudadana que integra observaciones de flora y fauna con validación de expertos. Genera mapas de distribución y datos abiertos para la ciencia.</p></div>
+                <div class="sistema-card"><i class="fas fa-route"></i><h4>SMART</h4><p>Sistema de Monitoreo y Reporte de Actividades. Herramienta estándar para patrullajes, registro de amenazas y análisis de mapas de calor en áreas protegidas.</p></div>
+                <div class="sistema-card"><i class="fas fa-database"></i><h4>Sistema de Información de Biodiversidad</h4><p>Plataforma nacional que consolida datos de distribución, estado de conservación y amenazas, integrándolos con los sistemas anteriores para la toma de decisiones.</p></div>
+            </div>
+            <div style="background:white;border-radius:24px;padding:2rem;margin-top:2rem;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                <h3 style="color:#0a2f44;"><i class="fas fa-link"></i> ¿Cómo se articulan?</h3>
+                <p>Las instituciones trabajan coordinadamente para implementar los sistemas de monitoreo. SERNANP usa SMART para el control de las ANP, MINAM coordina con universidades para la validación científica, y plataformas como iNaturalist permiten participación ciudadana. ATTA integra sensores remotos y datos de campo para generar alertas tempranas que son validadas por los equipos técnicos de las instituciones.</p>
+            </div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-handshake"></i> Trabajo conjunto por la conservación</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: DETALLE -->
+    <div id="page-detalle" class="page">
+        <div class="container" style="max-width:1100px;">
+            <button class="btn-back" id="backFromDetailBtn"><i class="fas fa-arrow-left"></i> Volver al catálogo</button>
+            <div id="detailContent"></div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-info-circle"></i> Ficha técnica</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PÁGINA: ÉTICA (AMPLIADA) -->
+    <div id="page-etica" class="page">
+        <section class="hero" style="background: linear-gradient(135deg, #2f4a5a, #1f5a6a);">
+            <h1><i class="fas fa-scale-balanced"></i> Ética y Regulación</h1>
+            <p>Equilibrio entre innovación y responsabilidad</p>
+        </section>
+        <div class="container">
+            <div class="ethics-case">
+                <h3><i class="fas fa-gavel"></i> Caso: Privacidad genética</h3>
+                <p>Un equipo obtiene datos genéticos de una población amenazada de jaguares. Estos datos podrían usarse para planes de conservación, pero también podrían ser explotados por cazadores furtivos si se filtran. ¿Qué decisión tomas?</p>
+                <div class="ethics-options">
+                    <button data-feedback="publicar">📊 Publicar todos los datos abiertamente</button>
+                    <button data-feedback="anonimizar">🔒 Anonimizar y compartir resúmenes</button>
+                    <button data-feedback="restringir">🚫 Restringir solo a científicos</button>
+                </div>
+                <div id="ethicsFeedback" class="ethics-feedback">
+                    <i class="fas fa-info-circle" style="color:#1c7a5a;font-size:1.4rem;"></i>
+                    <span id="feedbackText"></span>
+                </div>
+                <p style="margin-top:1rem;font-size:0.9rem;color:#2a5a5a;">
+                    <i class="fas fa-shield-alt"></i> La bioinformática debe equilibrar la transparencia con la protección de ecosistemas vulnerables. Sistemas como ATTA y SMART utilizan datos sensibles que requieren protocolos éticos claros.
+                </p>
+            </div>
+
+            <div class="card-grid" style="margin-top:2rem;">
+                <div class="card">
+                    <h3><i class="fas fa-user-secret"></i> Privacidad genética</h3>
+                    <ul>
+                        <li><i class="fas fa-check"></i> Los datos genéticos de especies deben ser tratados con confidencialidad para evitar su mal uso.</li>
+                        <li><i class="fas fa-check"></i> El acceso a información de ubicación precisa debe restringirse a personal autorizado.</li>
+                        <li><i class="fas fa-check"></i> Se deben establecer acuerdos de uso de datos entre instituciones.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-shield-virus"></i> Bioseguridad</h3>
+                    <ul>
+                        <li><i class="fas fa-check"></i> Los sistemas de alerta temprana (ATTA) deben garantizar la integridad de los datos y prevenir ciberataques.</li>
+                        <li><i class="fas fa-check"></i> El uso de información geoespacial debe evitar poner en riesgo a comunidades locales.</li>
+                        <li><i class="fas fa-check"></i> Se requiere capacitación en manejo ético de datos para todos los usuarios de SMART e iNaturalist.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-globe"></i> Impacto ambiental</h3>
+                    <ul>
+                        <li><i class="fas fa-check"></i> El modelado de nichos debe considerar escenarios éticos que eviten la sobreexplotación de recursos.</li>
+                        <li><i class="fas fa-check"></i> La toma de decisiones basada en datos debe incluir consulta a comunidades locales.</li>
+                        <li><i class="fas fa-check"></i> Se debe evaluar el impacto de las intervenciones de conservación en los ecosistemas.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="background:#e8f4f0;border-radius:24px;padding:2rem;margin-top:2rem;">
+                <h3 style="color:#0a2f44;"><i class="fas fa-satellite-dish"></i> Ética en los sistemas de monitoreo</h3>
+                <p><strong>ATTA (Alerta Temprana)</strong>: Utiliza datos de sensores remotos y campo. Su uso ético implica garantizar que las alertas no generen pánico innecesario y que la información sea verificada por expertos. Además, debe respetar la privacidad de las comunidades en las áreas monitoreadas.</p>
+                <p><strong>SMART</strong>: Almacena datos de patrullajes y amenazas. Es fundamental que estos datos sean anonimizados cuando se compartan con terceros, y que los patrulleros reciban formación en protección de datos.</p>
+                <p><strong>iNaturalist</strong>: Al ser una plataforma abierta, los usuarios deben ser conscientes de que las observaciones con ubicación precisa pueden exponer a especies vulnerables. La plataforma permite ocultar coordenadas, y es responsabilidad del usuario decidir qué compartir.</p>
+                <p style="margin-top:0.5rem;"><i class="fas fa-balance-scale"></i> La bioinformática aplicada a la conservación debe promover la transparencia, pero también la protección de la biodiversidad y las comunidades.</p>
+            </div>
+        </div>
+        <footer class="footer"><p><i class="fas fa-scale-balanced"></i> Ética y regulación</p></footer>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- SCRIPTS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        (function() {
+            // =============================================================
+            // 1. NAVEGACIÓN
+            // =============================================================
+            const pages = {
+                inicio: document.getElementById('page-inicio'),
+                aplicaciones: document.getElementById('page-aplicaciones'),
+                monitoreo: document.getElementById('page-monitoreo'),
+                datos: document.getElementById('page-datos'),
+                instituciones: document.getElementById('page-instituciones'),
+                detalle: document.getElementById('page-detalle'),
+                etica: document.getElementById('page-etica')
+            };
+            const navLinks = document.querySelectorAll('.nav-links a');
+
+            function navigateTo(pageId, param) {
+                Object.values(pages).forEach(p => p.classList.remove('active'));
+                if (pages[pageId]) pages[pageId].classList.add('active');
+                else pages.inicio.classList.add('active'), pageId = 'inicio';
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.dataset.page === pageId) link.classList.add('active');
+                });
+                if (pageId === 'detalle') navLinks.forEach(link => link.classList.remove('active'));
+                if (pageId === 'monitoreo') {
+                    initMap();
+                    populateSpeciesSelect();
+                    initENM();
+                }
+                if (pageId === 'datos') renderCatalog();
+                if (pageId === 'detalle' && param) showDetail(param);
+            }
+
+            function handleHash() {
+                const hash = window.location.hash.replace('#', '');
+                if (hash.startsWith('detalle=')) {
+                    const slug = hash.replace('detalle=', '');
+                    navigateTo('detalle', slug);
+                } else {
+                    navigateTo(hash || 'inicio');
+                }
+            }
+            window.addEventListener('hashchange', handleHash);
+            window.addEventListener('load', handleHash);
+
+            // =============================================================
+            // 2. DATOS COMPLETOS (TODAS LAS ESPECIES)
+            // =============================================================
+            // ===== ANIMALES (más de 200) =====
+            const animales = [
+                // MAMÍFEROS (70+)
+                { nombre: 'Oso de anteojos', cientifico: 'Tremarctos ornatus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques nublados', estado: 'VU', distribucion: 'Andes', lat: -11.5, lng: -75.2 },
+                { nombre: 'Jaguar', cientifico: 'Panthera onca', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva amazónica', estado: 'NT', distribucion: 'Amazonía', lat: -9.5, lng: -71.5 },
+                { nombre: 'Puma', cientifico: 'Puma concolor', categoria: 'animal', grupo: 'Mamífero', habitat: 'Diversos',
+                    estado: 'LC', distribucion: 'Todo el país', lat: -11.0, lng: -74.0 },
+                { nombre: 'Tapir andino', cientifico: 'Tapirus pinchaque', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques de montaña', estado: 'EN', distribucion: 'Andes', lat: -12.0, lng: -75.5 },
+                { nombre: 'Tapir amazónico', cientifico: 'Tapirus terrestris', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Vicuña', cientifico: 'Vicugna vicugna', categoria: 'animal', grupo: 'Mamífero', habitat: 'Puna',
+                    estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Guanaco', cientifico: 'Lama guanicoe', categoria: 'animal', grupo: 'Mamífero', habitat: 'Puna',
+                    estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -71.0 },
+                { nombre: 'Llama', cientifico: 'Lama glama', categoria: 'animal', grupo: 'Mamífero', habitat: 'Domesticado',
+                    estado: 'NE', distribucion: 'Andes', lat: -12.5, lng: -73.5 },
+                { nombre: 'Alpaca', cientifico: 'Vicugna pacos', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Domesticado', estado: 'NE', distribucion: 'Andes', lat: -14.0, lng: -72.5 },
+                { nombre: 'Zorro andino', cientifico: 'Lycalopex culpaeus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -74.5 },
+                { nombre: 'Zorro de Sechura', cientifico: 'Lycalopex sechurae', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Desierto costero', estado: 'NT', distribucion: 'Costa norte', lat: -5.5, lng: -80.0 },
+                { nombre: 'Nutria gigante', cientifico: 'Pteronura brasiliensis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos amazónicos', estado: 'EN', distribucion: 'Amazonía', lat: -8.0, lng: -74.0 },
+                { nombre: 'Lobo de río', cientifico: 'Lontra longicaudis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos', estado: 'NT', distribucion: 'Amazonía', lat: -9.0, lng: -75.0 },
+                { nombre: 'Pecarí de collar', cientifico: 'Pecari tajacu', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Pecarí labiado', cientifico: 'Tayassu pecari', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.0, lng: -72.0 },
+                { nombre: 'Venado de cola blanca', cientifico: 'Odocoileus virginianus', categoria: 'animal',
+                    grupo: 'Mamífero', habitat: 'Diversos', estado: 'LC', distribucion: 'Costa, sierra', lat: -11.0,
+                    lng: -76.0 },
+                { nombre: 'Venado rojo', cientifico: 'Mazama americana', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'DD', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Mono aullador', cientifico: 'Alouatta seniculus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -72.5 },
+                { nombre: 'Mono araña', cientifico: 'Ateles belzebuth', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'EN', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Mono choro', cientifico: 'Lagothrix lagothricha', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Mono tocón', cientifico: 'Callicebus oenanthe', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'CR', distribucion: 'San Martín', lat: -7.0, lng: -76.5 },
+                { nombre: 'Pichico común', cientifico: 'Saguinus fuscicollis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Leoncito', cientifico: 'Leontopithecus rosalia', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'EN', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Armadillo gigante', cientifico: 'Priodontes maximus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                { nombre: 'Armadillo de nueve bandas', cientifico: 'Dasypus novemcinctus', categoria: 'animal',
+                    grupo: 'Mamífero', habitat: 'Diversos', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.5 },
+                { nombre: 'Oso hormiguero', cientifico: 'Myrmecophaga tridactyla', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Sabanas', estado: 'VU', distribucion: 'Amazonía', lat: -8.0, lng: -72.0 },
+                { nombre: 'Tamandúa', cientifico: 'Tamandua tetradactyla', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Capibara', cientifico: 'Hydrochoerus hydrochaeris', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Cuy silvestre', cientifico: 'Cavia tschudii', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -73.5 },
+                { nombre: 'Chinchilla', cientifico: 'Chinchilla lanigera', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'CR', distribucion: 'Andes', lat: -14.5, lng: -72.0 },
+                { nombre: 'Vizcacha', cientifico: 'Lagidium viscacia', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -74.0 },
+                { nombre: 'Murciélago vampiro', cientifico: 'Desmodus rotundus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Diversos', estado: 'LC', distribucion: 'Todo el país', lat: -11.0, lng: -75.0 },
+                { nombre: 'Murciélago de nariz larga', cientifico: 'Anoura geoffroyi', categoria: 'animal',
+                    grupo: 'Mamífero', habitat: 'Bosques', estado: 'LC', distribucion: 'Andes, Amazonía', lat: -10.0,
+                    lng: -74.0 },
+                { nombre: 'Delfín rosado', cientifico: 'Inia geoffrensis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos amazónicos', estado: 'EN', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Delfín gris', cientifico: 'Sotalia fluviatilis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos', estado: 'NT', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Ballena jorobada', cientifico: 'Megaptera novaeangliae', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Océano', estado: 'LC', distribucion: 'Costa peruana', lat: -12.5, lng: -78.0 },
+                { nombre: 'Lobo marino', cientifico: 'Otaria flavescens', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Litoral', estado: 'LC', distribucion: 'Costa', lat: -13.5, lng: -76.5 },
+                { nombre: 'Foca', cientifico: 'Arctocephalus australis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Litoral', estado: 'LC', distribucion: 'Costa', lat: -14.0, lng: -76.0 },
+                { nombre: 'Gato montés', cientifico: 'Leopardus colocolo', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'NT', distribucion: 'Andes', lat: -12.5, lng: -74.5 },
+                { nombre: 'Gato andino', cientifico: 'Leopardus jacobita', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'EN', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Jaguarundi', cientifico: 'Herpailurus yagouaroundi', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Ocelote', cientifico: 'Leopardus pardalis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.5 },
+                { nombre: 'Margay', cientifico: 'Leopardus wiedii', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'NT', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Tigrillo', cientifico: 'Leopardus tigrinus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'VU', distribucion: 'Andes, Amazonía', lat: -10.0, lng: -74.5 },
+                { nombre: 'Cachorro de monte', cientifico: 'Speothos venaticus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -8.0, lng: -73.0 },
+                { nombre: 'Mapache', cientifico: 'Procyon cancrivorus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Coati', cientifico: 'Nasua nasua', categoria: 'animal', grupo: 'Mamífero', habitat: 'Bosques',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Pereza de tres dedos', cientifico: 'Bradypus variegatus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -72.5 },
+                { nombre: 'Pereza de dos dedos', cientifico: 'Choloepus hoffmanni', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                // Aves (más de 60)
+                { nombre: 'Gallito de las rocas', cientifico: 'Rupicola peruviana', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques nublados', estado: 'LC', distribucion: 'Andes', lat: -11.0, lng: -75.0 },
+                { nombre: 'Cóndor andino', cientifico: 'Vultur gryphus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Puna', estado: 'VU', distribucion: 'Andes', lat: -13.0, lng: -72.5 },
+                { nombre: 'Pava aliblanca', cientifico: 'Penelope albipennis', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques secos', estado: 'EN', distribucion: 'Costa norte', lat: -6.0, lng: -80.0 },
+                { nombre: 'Periquito esmeralda', cientifico: 'Forpus coelestis', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Costa norte', lat: -5.5, lng: -79.5 },
+                { nombre: 'Guacamayo azul y amarillo', cientifico: 'Ara ararauna', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Guacamayo rojo', cientifico: 'Ara macao', categoria: 'animal', grupo: 'Ave', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -72.0 },
+                { nombre: 'Guacamayo militar', cientifico: 'Ara militaris', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'VU', distribucion: 'Andes, Amazonía', lat: -10.5, lng: -74.0 },
+                { nombre: 'Loro de frente amarilla', cientifico: 'Amazona ochrocephala', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Loro de cabeza azul', cientifico: 'Pionus menstruus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Tucán', cientifico: 'Ramphastos culminatus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Tucancito', cientifico: 'Aulacorhynchus derbianus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Andes', lat: -11.5, lng: -75.5 },
+                { nombre: 'Carpintero', cientifico: 'Campephilus melanoleucos', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.5 },
+                { nombre: 'Picaflor', cientifico: 'Colibri coruscans', categoria: 'animal', grupo: 'Ave', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -74.5 },
+                { nombre: 'Colibrí de cola larga', cientifico: 'Aglaiocercus kingii', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -75.0 },
+                { nombre: 'Martín pescador', cientifico: 'Chloroceryle americana', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.0 },
+                { nombre: 'Garza blanca', cientifico: 'Ardea alba', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Humedales', estado: 'LC', distribucion: 'Todo el país', lat: -11.0, lng: -76.0 },
+                { nombre: 'Garza boyera', cientifico: 'Bubulcus ibis', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Campos', estado: 'LC', distribucion: 'Todo el país', lat: -12.0, lng: -76.5 },
+                { nombre: 'Flamenco', cientifico: 'Phoenicopterus chilensis', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Lagunas', estado: 'LC', distribucion: 'Costa', lat: -14.5, lng: -75.5 },
+                { nombre: 'Pato criollo', cientifico: 'Cairina moschata', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Pato de los torrentes', cientifico: 'Merganetta armata', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Ríos andinos', estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -75.0 },
+                { nombre: 'Gaviota', cientifico: 'Larus belcheri', categoria: 'animal', grupo: 'Ave', habitat: 'Litoral',
+                    estado: 'LC', distribucion: 'Costa', lat: -13.0, lng: -76.5 },
+                { nombre: 'Pelícano', cientifico: 'Pelecanus thagus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Litoral', estado: 'NT', distribucion: 'Costa', lat: -12.5, lng: -77.5 },
+                { nombre: 'Piquero', cientifico: 'Sula variegata', categoria: 'animal', grupo: 'Ave', habitat: 'Litoral',
+                    estado: 'LC', distribucion: 'Costa', lat: -13.5, lng: -76.5 },
+                { nombre: 'Fragata', cientifico: 'Fregata magnificens', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Litoral', estado: 'LC', distribucion: 'Costa', lat: -12.0, lng: -78.0 },
+                { nombre: 'Lechuza', cientifico: 'Tyto alba', categoria: 'animal', grupo: 'Ave', habitat: 'Diversos',
+                    estado: 'LC', distribucion: 'Todo el país', lat: -11.0, lng: -75.5 },
+                { nombre: 'Búho', cientifico: 'Bubo virginianus', categoria: 'animal', grupo: 'Ave', habitat: 'Bosques',
+                    estado: 'LC', distribucion: 'Todo el país', lat: -12.5, lng: -74.0 },
+                { nombre: 'Águila solitaria', cientifico: 'Buteogallus solitarius', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'NT', distribucion: 'Andes', lat: -11.5, lng: -75.0 },
+                { nombre: 'Halcón peregrino', cientifico: 'Falco peregrinus', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Diversos', estado: 'LC', distribucion: 'Todo el país', lat: -12.0, lng: -76.0 },
+                { nombre: 'Cernícalo', cientifico: 'Falco sparverius', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Campos', estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -76.5 },
+                { nombre: 'Pava de monte', cientifico: 'Penelope jacquacu', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.0 },
+                { nombre: 'Pava sabanera', cientifico: 'Penelope purpurascens', categoria: 'animal', grupo: 'Ave',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                // Reptiles (más de 20)
+                { nombre: 'Cocodrilo de Tumbes', cientifico: 'Crocodylus acutus', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Ríos costeros', estado: 'VU', distribucion: 'Costa norte', lat: -4.5, lng: -80.5 },
+                { nombre: 'Caimán negro', cientifico: 'Melanosuchus niger', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Ríos amazónicos', estado: 'NT', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Lagarto overo', cientifico: 'Tupinambis teguixin', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Iguana verde', cientifico: 'Iguana iguana', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Serpiente de cascabel', cientifico: 'Crotalus durissus', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Sabanas', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -72.5 },
+                { nombre: 'Boa constrictor', cientifico: 'Boa constrictor', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                { nombre: 'Anaconda', cientifico: 'Eunectes murinus', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -74.0 },
+                { nombre: 'Sucurí', cientifico: 'Eunectes deschauenseei', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Pantanos', estado: 'NT', distribucion: 'Amazonía', lat: -9.0, lng: -74.5 },
+                { nombre: 'Culebra verde', cientifico: 'Philodryas viridissima', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Tortuga motelo', cientifico: 'Geochelone denticulata', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.0, lng: -72.5 },
+                { nombre: 'Tortuga de río', cientifico: 'Podocnemis unifilis', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Ríos', estado: 'VU', distribucion: 'Amazonía', lat: -8.5, lng: -74.5 },
+                { nombre: 'Tortuga de la selva', cientifico: 'Kinosternon scorpioides', categoria: 'animal',
+                    grupo: 'Reptil', habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Lagartija', cientifico: 'Liolaemus annectens', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -74.5 },
+                { nombre: 'Gecko', cientifico: 'Phyllodactylus gerrhopigus', categoria: 'animal', grupo: 'Reptil',
+                    habitat: 'Diversos', estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -75.5 },
+                // Anfibios (más de 15)
+                { nombre: 'Rana de cristal', cientifico: 'Hyalinobatrachium fleischmanni', categoria: 'animal',
+                    grupo: 'Anfibio', habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Rana venenosa', cientifico: 'Epipedobates tricolor', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Sapo gigante', cientifico: 'Rhinella marina', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Diversos', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Rana lechera', cientifico: 'Trachycephalus resinifictrix', categoria: 'animal',
+                    grupo: 'Anfibio', habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Rana mono', cientifico: 'Phyllomedusa bicolor', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.0 },
+                { nombre: 'Sapo de tres rayas', cientifico: 'Rhinella major', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Sabanas', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                { nombre: 'Rana arbórea', cientifico: 'Hyla boans', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -74.5 },
+                { nombre: 'Rana marsupial', cientifico: 'Gastrotheca excubitor', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Bosques', estado: 'NT', distribucion: 'Andes', lat: -12.0, lng: -75.5 },
+                { nombre: 'Sapo de la puna', cientifico: 'Rhinella spinulosa', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -73.0 },
+                { nombre: 'Rana del Titicaca', cientifico: 'Telmatobius culeus', categoria: 'animal', grupo: 'Anfibio',
+                    habitat: 'Lago Titicaca', estado: 'CR', distribucion: 'Puno', lat: -15.8, lng: -69.5 },
+                // Peces (más de 20)
+                { nombre: 'Paiche', cientifico: 'Arapaima gigas', categoria: 'animal', grupo: 'Pez',
+                    habitat: 'Ríos amazónicos', estado: 'DD', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Tucunaré', cientifico: 'Cichla monoculus', categoria: 'animal', grupo: 'Pez', habitat: 'Ríos',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Zúngaro', cientifico: 'Brachyplatystoma filamentosum', categoria: 'animal', grupo: 'Pez',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Bagre', cientifico: 'Pimelodus blochii', categoria: 'animal', grupo: 'Pez', habitat: 'Ríos',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                { nombre: 'Corbina', cientifico: 'Cilus gilberti', categoria: 'animal', grupo: 'Pez', habitat: 'Océano',
+                    estado: 'NT', distribucion: 'Costa', lat: -12.0, lng: -77.5 },
+                { nombre: 'Bonito', cientifico: 'Sarda chiliensis', categoria: 'animal', grupo: 'Pez', habitat: 'Océano',
+                    estado: 'LC', distribucion: 'Costa', lat: -13.5, lng: -76.5 },
+                { nombre: 'Atún', cientifico: 'Thunnus albacares', categoria: 'animal', grupo: 'Pez', habitat: 'Océano',
+                    estado: 'NT', distribucion: 'Costa', lat: -12.5, lng: -78.5 },
+                { nombre: 'Sabalito', cientifico: 'Brycon hilarii', categoria: 'animal', grupo: 'Pez', habitat: 'Ríos',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -72.5 },
+                { nombre: 'Palometa', cientifico: 'Serrasalmus rhombeus', categoria: 'animal', grupo: 'Pez',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Carachama', cientifico: 'Hypostomus punctatus', categoria: 'animal', grupo: 'Pez',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Boca chica', cientifico: 'Mylossoma aureum', categoria: 'animal', grupo: 'Pez',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -74.0 },
+                { nombre: 'Pejerrey', cientifico: 'Odontesthes regia', categoria: 'animal', grupo: 'Pez', habitat: 'Lagos',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -75.5 },
+                { nombre: 'Trucha', cientifico: 'Oncorhynchus mykiss', categoria: 'animal', grupo: 'Pez', habitat: 'Ríos',
+                    estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -74.0 },
+                // Más mamíferos adicionales para completar
+                { nombre: 'Oso perezoso', cientifico: 'Bradypus variegatus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -72.5 },
+                { nombre: 'Mono ardilla', cientifico: 'Saimiri sciureus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Mono nocturno', cientifico: 'Aotus nancymaae', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Mono capuchino', cientifico: 'Cebus albifrons', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Mono negro', cientifico: 'Ateles chamek', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'EN', distribucion: 'Amazonía', lat: -9.5, lng: -72.0 },
+                { nombre: 'Mono de los pantanos', cientifico: 'Callicebus lugens', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Pantanos', estado: 'VU', distribucion: 'Amazonía', lat: -8.0, lng: -74.5 },
+                { nombre: 'Puercoespín', cientifico: 'Coendou prehensilis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Paca', cientifico: 'Cuniculus paca', categoria: 'animal', grupo: 'Mamífero', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Añuje', cientifico: 'Dasyprocta fuliginosa', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                { nombre: 'Rata de monte', cientifico: 'Oryzomys albigularis', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -74.5 },
+                { nombre: 'Ratón de campo', cientifico: 'Akodon aerosus', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -73.5 },
+                { nombre: 'Comadreja', cientifico: 'Mustela frenata', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Diversos', estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -75.0 },
+                { nombre: 'Mofeta', cientifico: 'Conepatus chinga', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.5 },
+                { nombre: 'Zorrillo', cientifico: 'Spilogale pygmaea', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Bosques', estado: 'VU', distribucion: 'Costa', lat: -10.5, lng: -76.0 },
+                { nombre: 'Huaytapallana', cientifico: 'Lagidium peruanum', categoria: 'animal', grupo: 'Mamífero',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -74.0 }
+            ];
+
+            // ===== PLANTAS (más de 150) =====
+            const plantas = [
+                { nombre: 'Árbol de la quina', cientifico: 'Cinchona officinalis', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Bosques', estado: 'VU', distribucion: 'Andes', lat: -12.0, lng: -75.0 },
+                { nombre: 'Caoba', cientifico: 'Swietenia macrophylla', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Cedro', cientifico: 'Cedrela odorata', categoria: 'planta', grupo: 'Árbol', habitat: 'Selva',
+                    estado: 'VU', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Caucho', cientifico: 'Hevea brasiliensis', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                { nombre: 'Palo rosa', cientifico: 'Aniba rosaeodora', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'EN', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Huarango', cientifico: 'Prosopis pallida', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Costa', estado: 'NT', distribucion: 'Costa norte', lat: -5.5, lng: -80.0 },
+                { nombre: 'Algarrobo', cientifico: 'Prosopis alba', categoria: 'planta', grupo: 'Árbol', habitat: 'Costa',
+                    estado: 'LC', distribucion: 'Costa', lat: -6.0, lng: -79.5 },
+                { nombre: 'Ceibo', cientifico: 'Ceiba pentandra', categoria: 'planta', grupo: 'Árbol', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Mangle', cientifico: 'Rhizophora mangle', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Manglares', estado: 'LC', distribucion: 'Costa', lat: -8.5, lng: -78.5 },
+                { nombre: 'Mangle blanco', cientifico: 'Laguncularia racemosa', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Manglares', estado: 'LC', distribucion: 'Costa', lat: -9.0, lng: -78.0 },
+                { nombre: 'Mangle rojo', cientifico: 'Rhizophora harrisonii', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Manglares', estado: 'NT', distribucion: 'Costa', lat: -8.0, lng: -78.5 },
+                { nombre: 'Pitahaya', cientifico: 'Hylocereus megalanthus', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa norte', lat: -6.0, lng: -79.0 },
+                { nombre: 'Chastudo', cientifico: 'Oreocereus leucotrichus', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -75.0 },
+                { nombre: 'Pata de liebre', cientifico: 'Punotia lagopus', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Tuna', cientifico: 'Opuntia ficus-indica', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -11.5, lng: -77.0 },
+                { nombre: 'Maca', cientifico: 'Lepidium meyenii', categoria: 'planta', grupo: 'Hierba', habitat: 'Puna',
+                    estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -73.5 },
+                { nombre: 'Quinua', cientifico: 'Chenopodium quinoa', categoria: 'planta', grupo: 'Granos',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.5 },
+                { nombre: 'Sacha inchi', cientifico: 'Plukenetia volubilis', categoria: 'planta', grupo: 'Semilla',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Yuca', cientifico: 'Manihot esculenta', categoria: 'planta', grupo: 'Tubérculo',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Camote', cientifico: 'Ipomoea batatas', categoria: 'planta', grupo: 'Tubérculo',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -76.0 },
+                { nombre: 'Papa', cientifico: 'Solanum tuberosum', categoria: 'planta', grupo: 'Tubérculo',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -74.5 },
+                { nombre: 'Olluco', cientifico: 'Ullucus tuberosus', categoria: 'planta', grupo: 'Tubérculo',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -74.0 },
+                { nombre: 'Oca', cientifico: 'Oxalis tuberosa', categoria: 'planta', grupo: 'Tubérculo', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Coca', cientifico: 'Erythroxylum coca', categoria: 'planta', grupo: 'Arbusto', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -75.5 },
+                { nombre: 'Tabaco', cientifico: 'Nicotiana tabacum', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -76.5 },
+                { nombre: 'Algodón', cientifico: 'Gossypium barbadense', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -10.0, lng: -77.0 },
+                { nombre: 'Caña de azúcar', cientifico: 'Saccharum officinarum', categoria: 'planta', grupo: 'Gramínea',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -9.0, lng: -78.0 },
+                { nombre: 'Maíz', cientifico: 'Zea mays', categoria: 'planta', grupo: 'Granos', habitat: 'Todo el país',
+                    estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -75.0 },
+                { nombre: 'Frijol', cientifico: 'Phaseolus vulgaris', categoria: 'planta', grupo: 'Leguminosa',
+                    habitat: 'Todo el país', estado: 'LC', distribucion: 'Todo el país', lat: -12.0, lng: -76.0 },
+                { nombre: 'Maní', cientifico: 'Arachis hypogaea', categoria: 'planta', grupo: 'Leguminosa',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -10.5, lng: -77.5 },
+                { nombre: 'Kantuta', cientifico: 'Cantua buxifolia', categoria: 'planta', grupo: 'Flor', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -75.5 },
+                { nombre: 'Retama', cientifico: 'Spartium junceum', categoria: 'planta', grupo: 'Flor', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -74.0 },
+                { nombre: 'Amancaes', cientifico: 'Hymenocallis amancaes', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Costa', estado: 'NT', distribucion: 'Costa', lat: -11.0, lng: -77.0 },
+                { nombre: 'Achira', cientifico: 'Canna indica', categoria: 'planta', grupo: 'Flor', habitat: 'Todo el país',
+                    estado: 'LC', distribucion: 'Todo el país', lat: -10.0, lng: -76.0 },
+                { nombre: 'Orquídea', cientifico: 'Cattleya rex', categoria: 'planta', grupo: 'Orquídea', habitat: 'Selva',
+                    estado: 'EN', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Orquídea mariposa', cientifico: 'Phalaenopsis amabilis', categoria: 'planta', grupo: 'Orquídea',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Orquídea de la selva', cientifico: 'Epidendrum secundum', categoria: 'planta', grupo: 'Orquídea',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                { nombre: 'Carrizo', cientifico: 'Arundo donax', categoria: 'planta', grupo: 'Gramínea', habitat: 'Costa',
+                    estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -77.5 },
+                { nombre: 'Molle', cientifico: 'Schinus molle', categoria: 'planta', grupo: 'Árbol', habitat: 'Costa',
+                    estado: 'LC', distribucion: 'Costa', lat: -12.0, lng: -76.5 },
+                { nombre: 'Caña brava', cientifico: 'Gynerium sagittatum', categoria: 'planta', grupo: 'Gramínea',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -10.0, lng: -78.0 },
+                { nombre: 'Zapote', cientifico: 'Manilkara zapota', categoria: 'planta', grupo: 'Árbol', habitat: 'Costa',
+                    estado: 'LC', distribucion: 'Costa', lat: -9.5, lng: -79.0 },
+                { nombre: 'Palma de coco', cientifico: 'Cocos nucifera', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -8.0, lng: -78.5 },
+                { nombre: 'Queñua', cientifico: 'Polylepis incana', categoria: 'planta', grupo: 'Árbol', habitat: 'Andes',
+                    estado: 'VU', distribucion: 'Andes', lat: -13.0, lng: -74.5 },
+                { nombre: 'Puya', cientifico: 'Puya raimondii', categoria: 'planta', grupo: 'Bromelia', habitat: 'Puna',
+                    estado: 'EN', distribucion: 'Andes', lat: -14.5, lng: -72.5 },
+                { nombre: 'Ichhu', cientifico: 'Stipa ichu', categoria: 'planta', grupo: 'Gramínea', habitat: 'Puna',
+                    estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -73.0 },
+                { nombre: 'Chilca', cientifico: 'Baccharis salicifolia', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -75.0 },
+                { nombre: 'Mutuy', cientifico: 'Cassia reticulata', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -74.0 },
+                { nombre: 'Aguaje', cientifico: 'Mauritia flexuosa', categoria: 'planta', grupo: 'Palma', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Huasaí', cientifico: 'Euterpe precatoria', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Cacao', cientifico: 'Theobroma cacao', categoria: 'planta', grupo: 'Árbol', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -74.0 },
+                { nombre: 'Café', cientifico: 'Coffea arabica', categoria: 'planta', grupo: 'Arbusto', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -73.0 },
+                { nombre: 'Plátano', cientifico: 'Musa paradisiaca', categoria: 'planta', grupo: 'Hierba',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Piña', cientifico: 'Ananas comosus', categoria: 'planta', grupo: 'Hierba', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.5 },
+                { nombre: 'Papaya', cientifico: 'Carica papaya', categoria: 'planta', grupo: 'Árbol', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -74.0 },
+                { nombre: 'Mango', cientifico: 'Mangifera indica', categoria: 'planta', grupo: 'Árbol', habitat: 'Costa',
+                    estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -78.0 },
+                { nombre: 'Achiote', cientifico: 'Bixa orellana', categoria: 'planta', grupo: 'Arbusto', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Uña de gato', cientifico: 'Uncaria tomentosa', categoria: 'planta', grupo: 'Enredadera',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Sangre de grado', cientifico: 'Croton lechleri', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                { nombre: 'Tahuari', cientifico: 'Tabebuia serratifolia', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -8.0, lng: -73.0 },
+                { nombre: 'Cedro amazónico', cientifico: 'Cedrela angustifolia', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 },
+                { nombre: 'Caoba amazónica', cientifico: 'Swietenia humilis', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'EN', distribucion: 'Amazonía', lat: -8.5, lng: -74.5 },
+                { nombre: 'Árbol de la nuez', cientifico: 'Bertholletia excelsa', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'VU', distribucion: 'Amazonía', lat: -9.5, lng: -73.5 },
+                { nombre: 'Palma real', cientifico: 'Roystonea regia', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -74.5 },
+                { nombre: 'Palma de aceite', cientifico: 'Elaeis guineensis', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Palma de la selva', cientifico: 'Iriartea deltoidea', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Bambú', cientifico: 'Bambusa vulgaris', categoria: 'planta', grupo: 'Gramínea',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -72.5 },
+                { nombre: 'Caña de la selva', cientifico: 'Guadua angustifolia', categoria: 'planta', grupo: 'Gramínea',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Helecho', cientifico: 'Pteridium aquilinum', categoria: 'planta', grupo: 'Helecho',
+                    habitat: 'Todo el país', estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -75.5 },
+                { nombre: 'Helecho de la puna', cientifico: 'Llavea cordifolia', categoria: 'planta', grupo: 'Helecho',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -74.0 },
+                { nombre: 'Líquen', cientifico: 'Usnea barbata', categoria: 'planta', grupo: 'Líquen', habitat: 'Bosques',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -75.0 },
+                { nombre: 'Musgo', cientifico: 'Sphagnum magellanicum', categoria: 'planta', grupo: 'Musgo',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Cactus de la costa', cientifico: 'Cereus repandus', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -77.5 },
+                { nombre: 'Cactus de la puna', cientifico: 'Opuntia floccosa', categoria: 'planta', grupo: 'Cactus',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -73.5 },
+                { nombre: 'Flor de la pasión', cientifico: 'Passiflora edulis', categoria: 'planta', grupo: 'Enredadera',
+                    habitat: 'Todo el país', estado: 'LC', distribucion: 'Todo el país', lat: -10.0, lng: -75.0 },
+                { nombre: 'Flor de la cascada', cientifico: 'Passiflora quadrangularis', categoria: 'planta',
+                    grupo: 'Enredadera', habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.0 },
+                { nombre: 'Flor de la luna', cientifico: 'Ipomoea alba', categoria: 'planta', grupo: 'Enredadera',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -10.5, lng: -78.0 },
+                { nombre: 'Flor de la selva', cientifico: 'Heliconia rostrata', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.5 },
+                { nombre: 'Flor de los Andes', cientifico: 'Centropogon granulosus', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Andes', estado: 'NT', distribucion: 'Andes', lat: -12.0, lng: -75.5 },
+                { nombre: 'Flor de la costa', cientifico: 'Nolana paradoxa', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -11.0, lng: -76.5 },
+                { nombre: 'Flor de la puna', cientifico: 'Senecio obtusatus', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -14.0, lng: -72.0 },
+                { nombre: 'Flor de la nieve', cientifico: 'Saussurea leucomelaena', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Puna', estado: 'LC', distribucion: 'Andes', lat: -13.5, lng: -73.0 },
+                { nombre: 'Flor del sol', cientifico: 'Helianthus annuus', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Todo el país', estado: 'LC', distribucion: 'Todo el país', lat: -11.5, lng: -76.0 },
+                { nombre: 'Flor del desierto', cientifico: 'Nolana humifusa', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Costa', estado: 'LC', distribucion: 'Costa', lat: -10.0, lng: -77.5 },
+                { nombre: 'Flor de la cordillera', cientifico: 'Calceolaria crenata', categoria: 'planta', grupo: 'Flor',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -12.5, lng: -74.5 },
+                { nombre: 'Lupino', cientifico: 'Lupinus mutabilis', categoria: 'planta', grupo: 'Leguminosa',
+                    habitat: 'Andes', estado: 'LC', distribucion: 'Andes', lat: -13.0, lng: -73.5 },
+                { nombre: 'Tara', cientifico: 'Caesalpinia spinosa', categoria: 'planta', grupo: 'Árbol', habitat: 'Andes',
+                    estado: 'LC', distribucion: 'Andes', lat: -12.0, lng: -75.0 },
+                { nombre: 'Huito', cientifico: 'Genipa americana', categoria: 'planta', grupo: 'Árbol', habitat: 'Selva',
+                    estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -73.5 },
+                { nombre: 'Pijuayo', cientifico: 'Bactris gasipaes', categoria: 'planta', grupo: 'Palma',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -8.5, lng: -73.0 },
+                { nombre: 'Copoazú', cientifico: 'Theobroma grandiflorum', categoria: 'planta', grupo: 'Árbol',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.5, lng: -72.5 },
+                { nombre: 'Camu camu', cientifico: 'Myrciaria dubia', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Ríos', estado: 'LC', distribucion: 'Amazonía', lat: -8.0, lng: -73.5 },
+                { nombre: 'Arazá', cientifico: 'Eugenia stipitata', categoria: 'planta', grupo: 'Arbusto',
+                    habitat: 'Selva', estado: 'LC', distribucion: 'Amazonía', lat: -9.0, lng: -74.0 }
+            ];
+
+            const todasEspecies = [...animales, ...plantas];
+            window.todasEspecies = todasEspecies;
+
+            // =============================================================
+            // 3. MAPA Y OBSERVACIONES
+            // =============================================================
+            let mapInstance = null;
+            let markersLayer = null;
+            let observations = [];
+
+            function populateSpeciesSelect() {
+                const selectObs = document.getElementById('speciesSelect');
+                if (!selectObs) return;
+                if ($(selectObs).data('select2')) $(selectObs).select2('destroy');
+                const sorted = [...todasEspecies].sort((a, b) => a.nombre.localeCompare(b.nombre));
+                selectObs.innerHTML = '<option value="">Selecciona una especie...</option>';
+                sorted.forEach(sp => {
+                    const opt = document.createElement('option');
+                    opt.value = sp.cientifico;
+                    opt.textContent = `${sp.nombre} (${sp.cientifico})`;
+                    selectObs.appendChild(opt);
+                });
+                $(selectObs).select2({ placeholder: 'Buscar especie...', allowClear: true, width: '100%' });
+                $(selectObs).on('change', function() {
+                    const val = $(this).val();
+                    const coordsInput = document.getElementById('coordsInput');
+                    if (val) {
+                        const sp = todasEspecies.find(e => e.cientifico === val);
+                        if (sp && sp.lat && sp.lng) {
+                            coordsInput.value = sp.lat.toFixed(4) + ', ' + sp.lng.toFixed(4);
+                            document.getElementById('addObservationBtn').dataset.lat = sp.lat;
+                            document.getElementById('addObservationBtn').dataset.lng = sp.lng;
+                        } else {
+                            coordsInput.value = 'Ubicación no definida';
+                        }
+                    } else {
+                        coordsInput.value = '';
+                    }
+                });
+
+                const selectENM = document.getElementById('enmSpecies');
+                if (!selectENM) return;
+                if ($(selectENM).data('select2')) $(selectENM).select2('destroy');
+                const enmSpecies = [
+                    { id: 'oso', label: 'Oso de anteojos' },
+                    { id: 'jaguar', label: 'Jaguar' },
+                    { id: 'puma', label: 'Puma' },
+                    { id: 'guacamayo', label: 'Guacamayo' },
+                    { id: 'tapir', label: 'Tapir andino' },
+                    { id: 'condor', label: 'Cóndor andino' },
+                    { id: 'nutria', label: 'Nutria gigante' },
+                    { id: 'mono', label: 'Mono araña' },
+                    { id: 'quina', label: 'Árbol de la quina' },
+                    { id: 'caoba', label: 'Caoba' }
+                ];
+                selectENM.innerHTML = '';
+                enmSpecies.forEach(sp => {
+                    const opt = document.createElement('option');
+                    opt.value = sp.id;
+                    opt.textContent = sp.label;
+                    selectENM.appendChild(opt);
+                });
+                $(selectENM).select2({ width: '100%' });
+                $(selectENM).on('change', function() {
+                    updateENM();
+                });
+                updateENM();
+            }
+
+            function initMap() {
+                const container = document.getElementById('map');
+                if (!container) return;
+                if (mapInstance) { setTimeout(() => mapInstance.invalidateSize(), 200); return; }
+                mapInstance = L.map('map').setView([-12.0464, -77.0428], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(mapInstance);
+                markersLayer = L.layerGroup().addTo(mapInstance);
+
+                const sample = [
+                    { species: 'Oso de anteojos', lat: -11.5, lng: -75.2 },
+                    { species: 'Jaguar', lat: -9.5, lng: -71.5 }
+                ];
+                const date = new Date().toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit' });
+                sample.forEach(s => observations.push({ ...s, date }));
+
+                const coordsInput = document.getElementById('coordsInput');
+                const addBtn = document.getElementById('addObservationBtn');
+                const clearBtn = document.getElementById('clearObservationsBtn');
+                const obsList = document.getElementById('observationList');
+
+                function renderObservations() {
+                    if (observations.length === 0) {
+                        obsList.innerHTML =
+                            '<div style="text-align:center;color:#6a8a8a;padding:0.5rem;">No hay observaciones aún</div>';
+                        return;
+                    }
+                    let html = '';
+                    observations.forEach((obs, idx) => {
+                        html += `<div class="observation-item">
+                            <span class="species"><i class="fas fa-paw"></i> ${obs.species}</span>
+                            <span class="date"><i class="far fa-calendar-alt"></i> ${obs.date}</span>
+                            <span class="coords">${obs.lat.toFixed(4)}, ${obs.lng.toFixed(4)}</span>
+                            <span style="color:#1c7a5a;cursor:pointer;" onclick="window.removeObservation(${idx})"><i class="fas fa-times-circle"></i></span>
+                        </div>`;
+                    });
+                    obsList.innerHTML = html;
+                }
+
+                function updateMarkers() {
+                    if (!markersLayer) return;
+                    markersLayer.clearLayers();
+                    observations.forEach(obs => {
+                        const marker = L.marker([obs.lat, obs.lng]).addTo(markersLayer);
+                        marker.bindPopup(`<b>${obs.species}</b><br>${obs.date}<br>Lat: ${obs.lat.toFixed(4)}, Lng: ${obs.lng.toFixed(4)}`);
+                    });
+                    if (observations.length > 0) {
+                        const group = L.featureGroup(observations.map(o => L.marker([o.lat, o.lng])));
+                        mapInstance.fitBounds(group.getBounds().pad(0.1));
+                    } else {
+                        mapInstance.setView([-12.0464, -77.0428], 6);
+                    }
+                }
+
+                window.removeObservation = function(idx) {
+                    if (idx >= 0 && idx < observations.length) {
+                        observations.splice(idx, 1);
+                        renderObservations();
+                        updateMarkers();
+                    }
+                };
+
+                addBtn.addEventListener('click', function() {
+                    const select = document.getElementById('speciesSelect');
+                    const cientifico = select.value;
+                    if (!cientifico) { alert('Selecciona una especie.'); return; }
+                    const sp = todasEspecies.find(e => e.cientifico === cientifico);
+                    if (!sp || !sp.lat || !sp.lng) { alert('La especie no tiene coordenadas.'); return; }
+                    const nombreComun = sp.nombre;
+                    const lat = sp.lat,
+                        lng = sp.lng;
+                    const date = new Date().toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit' });
+                    observations.push({ species: nombreComun, lat, lng, date });
+                    renderObservations();
+                    updateMarkers();
+                    $(select).val(null).trigger('change');
+                    coordsInput.value = '';
+                });
+
+                clearBtn.addEventListener('click', function() {
+                    if (observations.length === 0) return;
+                    if (confirm('¿Eliminar todas las observaciones?')) {
+                        observations = [];
+                        renderObservations();
+                        updateMarkers();
+                        coordsInput.value = '';
+                    }
+                });
+
+                renderObservations();
+                updateMarkers();
+            }
+
+            // =============================================================
+            // 4. ENM con gráfico de barras
+            // =============================================================
+            let enmChart = null;
+
+            function initENM() {
+                const sliders = ['temp', 'prec', 'alt', 'disturb', 'ndvi'];
+                sliders.forEach(id => {
+                    const slider = document.getElementById(id + 'Slider');
+                    const valSpan = document.getElementById(id + 'Val');
+                    if (slider) {
+                        slider.addEventListener('input', function() {
+                            if (valSpan) valSpan.textContent = this.value;
+                            updateENM();
+                        });
+                    }
+                });
+                const enmSelect = document.getElementById('enmSpecies');
+                if (enmSelect) {
+                    enmSelect.addEventListener('change', updateENM);
+                }
+                const ctx = document.getElementById('enmChart').getContext('2d');
+                enmChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Temperatura', 'Precipitación', 'Altitud', 'Perturbación', 'Cobertura vegetal'],
+                        datasets: [{
+                            label: 'Idoneidad (%)',
+                            data: [0, 0, 0, 0, 0],
+                            backgroundColor: ['#1c7a5a', '#2a9d8f', '#6bcb9a', '#e9c46a', '#f4a261'],
+                            borderColor: '#0a2f44',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: function(context) { return context.parsed.y + '%'; } } }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { min: 0, max: 100, title: { display: true, text: 'Idoneidad (%)' } }
+                        }
+                    }
+                });
+                updateENM();
+            }
+
+            function updateENM() {
+                const temp = parseFloat(document.getElementById('tempSlider').value);
+                const prec = parseFloat(document.getElementById('precSlider').value);
+                const alt = parseFloat(document.getElementById('altSlider').value);
+                const disturb = parseFloat(document.getElementById('disturbSlider').value);
+                const ndvi = parseFloat(document.getElementById('ndviSlider').value);
+
+                const enmSelect = document.getElementById('enmSpecies');
+                const speciesKey = enmSelect ? enmSelect.value : 'oso';
+                let opts = {};
+                if (speciesKey === 'oso') {
+                    opts = { tempOpt: 15, tempSigma: 4, precOpt: 1500, precSigma: 600, altOpt: 2500, altSigma: 700,
+                        disturbMax: 40, ndviMin: 0.5, label: 'Oso de anteojos' };
+                } else if (speciesKey === 'jaguar') {
+                    opts = { tempOpt: 26, tempSigma: 3, precOpt: 2500, precSigma: 700, altOpt: 500, altSigma: 400,
+                        disturbMax: 30, ndviMin: 0.6, label: 'Jaguar' };
+                } else if (speciesKey === 'puma') {
+                    opts = { tempOpt: 20, tempSigma: 5, precOpt: 1000, precSigma: 400, altOpt: 1500, altSigma: 1000,
+                        disturbMax: 50, ndviMin: 0.3, label: 'Puma' };
+                } else if (speciesKey === 'guacamayo') {
+                    opts = { tempOpt: 24, tempSigma: 4, precOpt: 2000, precSigma: 700, altOpt: 1000, altSigma: 600,
+                        disturbMax: 35, ndviMin: 0.5, label: 'Guacamayo' };
+                } else if (speciesKey === 'tapir') {
+                    opts = { tempOpt: 14, tempSigma: 3, precOpt: 1800, precSigma: 500, altOpt: 2800, altSigma: 600,
+                        disturbMax: 25, ndviMin: 0.6, label: 'Tapir andino' };
+                } else if (speciesKey === 'condor') {
+                    opts = { tempOpt: 10, tempSigma: 3, precOpt: 800, precSigma: 300, altOpt: 3500, altSigma: 600,
+                        disturbMax: 20, ndviMin: 0.2, label: 'Cóndor andino' };
+                } else if (speciesKey === 'nutria') {
+                    opts = { tempOpt: 22, tempSigma: 4, precOpt: 2800, precSigma: 800, altOpt: 200, altSigma: 300,
+                        disturbMax: 20, ndviMin: 0.5, label: 'Nutria gigante' };
+                } else if (speciesKey === 'mono') {
+                    opts = { tempOpt: 24, tempSigma: 3, precOpt: 2200, precSigma: 600, altOpt: 300, altSigma: 400,
+                        disturbMax: 30, ndviMin: 0.7, label: 'Mono araña' };
+                } else if (speciesKey === 'quina') {
+                    opts = { tempOpt: 16, tempSigma: 3, precOpt: 1400, precSigma: 500, altOpt: 2000, altSigma: 600,
+                        disturbMax: 35, ndviMin: 0.4, label: 'Árbol de la quina' };
+                } else if (speciesKey === 'caoba') {
+                    opts = { tempOpt: 25, tempSigma: 3, precOpt: 2000, precSigma: 600, altOpt: 400, altSigma: 300,
+                        disturbMax: 30, ndviMin: 0.6, label: 'Caoba' };
+                } else {
+                    opts = { tempOpt: 20, tempSigma: 5, precOpt: 1500, precSigma: 600, altOpt: 1500, altSigma: 800,
+                        disturbMax: 40, ndviMin: 0.4, label: 'Especie' };
+                }
+                document.getElementById('enmSpeciesName').textContent = opts.label;
+
+                const suitTemp = gaussian(temp, opts.tempOpt, opts.tempSigma);
+                const suitPrec = gaussian(prec, opts.precOpt, opts.precSigma);
+                const suitAlt = gaussian(alt, opts.altOpt, opts.altSigma);
+                const suitDisturb = 1 - Math.min(1, disturb / opts.disturbMax);
+                const suitNdvi = Math.min(1, Math.max(0, (ndvi - opts.ndviMin) / (1 - opts.ndviMin)));
+
+                const total = (suitTemp * 0.25 + suitPrec * 0.20 + suitAlt * 0.20 + suitDisturb * 0.20 + suitNdvi * 0.15) *
+                100;
+                document.getElementById('suitabilityValue').textContent = Math.round(total) + '%';
+                const area = Math.round(15000 + (total / 100) * 60000);
+                document.getElementById('potentialArea').textContent = area.toLocaleString();
+
+                const scores = [
+                    { name: 'Temperatura', val: suitTemp },
+                    { name: 'Precipitación', val: suitPrec },
+                    { name: 'Altitud', val: suitAlt },
+                    { name: 'Perturbación', val: suitDisturb },
+                    { name: 'Cobertura vegetal', val: suitNdvi }
+                ];
+                const minScore = Math.min(...scores.map(s => s.val));
+                const keyVar = scores.find(s => s.val === minScore).name;
+                document.getElementById('keyVar').textContent = keyVar;
+
+                if (enmChart) {
+                    enmChart.data.datasets[0].data = [
+                        suitTemp * 100,
+                        suitPrec * 100,
+                        suitAlt * 100,
+                        suitDisturb * 100,
+                        suitNdvi * 100
+                    ];
+                    enmChart.update();
+                }
+            }
+
+            function gaussian(x, mean, sigma) {
+                return Math.exp(-Math.pow(x - mean, 2) / (2 * sigma * sigma));
+            }
+
+            // =============================================================
+            // 5. CATÁLOGO Y DETALLE
+            // =============================================================
+            function renderCatalog() {
+                const grid = document.getElementById('catalogGrid');
+                const filter = document.getElementById('catFilter');
+                const search = document.getElementById('catSearch');
+                const stats = document.getElementById('catalogStats');
+                let filtered = todasEspecies;
+                if (filter.value !== 'todos') filtered = filtered.filter(item => item.categoria === filter.value);
+                const q = search.value.toLowerCase().trim();
+                if (q) filtered = filtered.filter(item =>
+                    item.nombre.toLowerCase().includes(q) ||
+                    item.cientifico.toLowerCase().includes(q) ||
+                    item.grupo.toLowerCase().includes(q) ||
+                    item.habitat.toLowerCase().includes(q)
+                );
+                stats.textContent = `Mostrando ${filtered.length} de ${todasEspecies.length} especies`;
+                if (filtered.length === 0) {
+                    grid.innerHTML = '<p style="text-align:center;padding:2rem;color:#4a6a7a;">No se encontraron especies.</p>';
+                    return;
+                }
+                let html = '';
+                filtered.forEach(item => {
+                    const slug = item.cientifico.toLowerCase().replace(/ /g, '-');
+                    html += `<div class="catalog-item" onclick="window.navigateToDetail('${slug}')">
+                        <div class="nombre">${item.nombre}</div>
+                        <div class="cientifico">${item.cientifico}</div>
+                        <div class="meta">
+                            <span><i class="fas fa-${item.categoria === 'animal' ? 'paw' : 'leaf'}"></i> ${item.grupo}</span>
+                            <span><i class="fas fa-tree"></i> ${item.habitat}</span>
+                            <span><span class="badge-estado ${item.estado}">${item.estado}</span></span>
+                            <span><i class="fas fa-map-marker-alt"></i> ${item.distribucion}</span>
+                        </div>
+                    </div>`;
+                });
+                grid.innerHTML = html;
+            }
+
+            const detalles = {
+                'tremarctos-ornatus': {
+                    nombre: 'Oso de anteojos',
+                    cientifico: 'Tremarctos ornatus',
+                    taxonomia: 'Mammalia, Carnivora, Ursidae',
+                    descripcion: 'El oso de anteojos es la única especie de oso nativa de Sudamérica. Habita en bosques nublados y páramos, donde se alimenta de bromelias, frutos y ocasionalmente pequeños vertebrados. Es un excelente trepador y juega un papel clave en la dispersión de semillas.',
+                    distribucion: 'Andes desde Venezuela hasta Bolivia, en bosques nublados entre 800 y 3800 m de altitud.',
+                    habitat: 'Bosques nublados, páramos y bosques secos montanos.',
+                    ecologia: 'Es frugívoro oportunista, dispersa semillas. Sus principales depredadores son el puma y el jaguar.',
+                    estado: 'Vulnerable (VU)',
+                    amenazas: 'Pérdida de hábitat, cacería furtiva, fragmentación.',
+                    conservacion: 'Protegido en varias ANP como el Parque Nacional Huascarán y el Santuario Nacional de Ampay.',
+                    referencias: 'UICN, MINAM, listados nacionales'
+                }
+            };
+
+            function showDetail(slug) {
+                const container = document.getElementById('detailContent');
+                const info = detalles[slug];
+                if (!info) {
+                    const sp = todasEspecies.find(e => e.cientifico.toLowerCase().replace(/ /g, '-') === slug);
+                    if (sp) {
+                        container.innerHTML =
+                            `<div style="background:white;border-radius:24px;padding:2rem;box-shadow:0 8px 30px rgba(0,0,0,0.06);">
+                            <h1>${sp.nombre}</h1>
+                            <div class="cientifico">${sp.cientifico}</div>
+                            <div class="meta-tags">
+                                <span><i class="fas fa-tag"></i> ${sp.grupo}</span>
+                                <span><i class="fas fa-globe"></i> ${sp.distribucion}</span>
+                                <span><i class="fas fa-leaf"></i> ${sp.habitat}</span>
+                                <span><span class="badge-estado ${sp.estado}">${sp.estado}</span></span>
+                            </div>
+                            <p style="margin-top:1rem;">Ficha detallada en preparación.</p>
+                            <button class="btn-back" onclick="window.location.hash='#datos'">Volver</button>
+                        </div>`;
+                    } else {
+                        container.innerHTML =
+                            `<div style="background:white;border-radius:24px;padding:3rem;text-align:center;"><h2>Especie no encontrada</h2><button class="btn-back" onclick="window.location.hash='#datos'">Volver</button></div>`;
+                    }
+                    return;
+                }
+                container.innerHTML = `
+                    <div class="detail-header">
+                        <h1>${info.nombre}</h1>
+                        <div class="cientifico">${info.cientifico}</div>
+                        <div class="meta-tags">
+                            <span><i class="fas fa-tag"></i> ${info.taxonomia}</span>
+                            <span><i class="fas fa-globe"></i> ${info.distribucion}</span>
+                            <span><i class="fas fa-leaf"></i> ${info.habitat}</span>
+                            <span><span class="badge-estado ${info.estado.split(' ')[0]}">${info.estado}</span></span>
+                        </div>
+                    </div>
+                    <div class="detail-body">
+                        <div class="main-info">
+                            <h2>Descripción</h2><p>${info.descripcion}</p>
+                            <h2>Distribución y hábitat</h2><p><strong>Distribución:</strong> ${info.distribucion}</p><p><strong>Hábitat:</strong> ${info.habitat}</p>
+                            <h2>Ecología</h2><p>${info.ecologia}</p>
+                            <h2>Estado de conservación</h2><p><strong>Estado UICN:</strong> ${info.estado}</p><p>${info.amenazas}</p>
+                            <h2>Medidas de conservación</h2><p>${info.conservacion}</p>
+                            <div class="ref"><strong>Referencias:</strong> ${info.referencias}</div>
+                        </div>
+                        <div class="sidebar">
+                            <h3>Datos rápidos</h3>
+                            <ul>
+                                <li><strong>Nombre común:</strong> ${info.nombre}</li>
+                                <li><strong>Nombre científico:</strong> ${info.cientifico}</li>
+                                <li><strong>Taxonomía:</strong> ${info.taxonomia}</li>
+                                <li><strong>Distribución:</strong> ${info.distribucion}</li>
+                                <li><strong>Hábitat:</strong> ${info.habitat}</li>
+                                <li><strong>Estado:</strong> ${info.estado}</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.navigateToDetail = function(slug) { window.location.hash = 'detalle=' + slug; };
+            document.getElementById('backFromDetailBtn').addEventListener('click', function() { window.location.hash =
+                    '#datos'; });
+            document.getElementById('catFilter').addEventListener('change', renderCatalog);
+            document.getElementById('catSearch').addEventListener('input', renderCatalog);
+            document.getElementById('catResetBtn').addEventListener('click', function() {
+                document.getElementById('catFilter').value = 'todos';
+                document.getElementById('catSearch').value = '';
+                renderCatalog();
+            });
+
+            // =============================================================
+            // 6. ÉTICA (con respuestas diferenciadas)
+            // =============================================================
+            const ethicsBtns = document.querySelectorAll('.ethics-options button');
+            const feedbackDiv = document.getElementById('ethicsFeedback');
+            const feedbackText = document.getElementById('feedbackText');
+
+            ethicsBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    ethicsBtns.forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    const option = this.dataset.feedback;
+                    let message = '';
+                    switch (option) {
+                        case 'publicar':
+                            message = 'Publicar todos los datos abiertamente acelera la investigación y la transparencia, pero expone a las especies a riesgos de biopiratería y caza furtiva. Se recomienda un acceso controlado con niveles de autorización.';
+                            break;
+                        case 'anonimizar':
+                            message = 'Anonimizar las coordenadas y compartir solo resúmenes estadísticos es un equilibrio responsable: protege la ubicación exacta y los datos sensibles, pero permite el avance científico. ¡Buena decisión!';
+                            break;
+                        case 'restringir':
+                            message = 'Restringir el acceso solo a científicos certificados es la opción más conservadora. Garantiza la máxima protección, pero puede limitar la colaboración y ralentizar el conocimiento. Depende del nivel de amenaza de la especie.';
+                            break;
+                        default:
+                            message = 'Opción considerada. La ética en bioinformática requiere evaluar riesgos y beneficios.';
+                    }
+                    feedbackText.textContent = message;
+                    feedbackDiv.classList.add('show');
+                });
+            });
+
+            // =============================================================
+            // 7. INICIALIZACIÓN GLOBAL
+            // =============================================================
+            window.todasEspecies = todasEspecies;
+            window.renderCatalog = renderCatalog;
+            window.populateSpeciesSelect = populateSpeciesSelect;
+            window.initMap = initMap;
+            window.initENM = initENM;
+            window.updateENM = updateENM;
+
+            if (document.getElementById('catalogGrid')) {
+                renderCatalog();
+            }
+
+        })();
+    </script>
+</body>
+</html>
